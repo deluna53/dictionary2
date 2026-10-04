@@ -47,6 +47,11 @@
   mark { background:#ffd54a; color:#000; border-radius:3px; padding:0 1px; }
   .empty { padding:24px; text-align:center; color:var(--muted); display:none; }
   .dash { color:var(--muted); text-decoration:none; }
+  tr.sec td { background:var(--bg); font-weight:600; font-size:.8rem; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); padding:10px 14px; }
+  tr.none td { color:var(--muted); font-size:.85rem; text-align:center; }
+  input[type=checkbox] { width:auto; padding:0; }
+  .same { display:flex; align-items:center; gap:6px; margin-top:8px; font-size:.85rem; color:var(--muted); }
+  .badge { font-size:.65rem; color:var(--accent); margin-left:6px; white-space:nowrap; }
 </style>
 </head>
 <body>
@@ -64,7 +69,9 @@
       <input id="newEn" placeholder="English (EN, optional)">
       <button class="primary" id="addBtn">Add</button>
     </div>
+    <label class="same"><input type="checkbox" id="sameChk"> Same word in Malay (copies the Indonesian word to Malay)</label>
     <div class="tools">
+      <button id="newBtn">🆕 This week (0)</button>
       <button id="trashBtn">🗑 Deleted (0)</button>
       <button id="restoreAllBtn">↩ Restore all</button>
       <button id="exportBtn">Export backup</button>
@@ -172,8 +179,19 @@ const esc = s => String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":
 const norm = s => String(s).toLowerCase();
 function showBanner(t) { banner.textContent = t; banner.style.display = "block"; }
 
-let rows = [], showTrash = false, editingKey = null, draft = null, db = null, col = null, loaded = false;
+let rows = [], showTrash = false, showNew = false, editingKey = null, draft = null, db = null, col = null, loaded = false;
 const configured = !firebaseConfig.apiKey.startsWith("PASTE");
+
+const WEEK = 7 * 24 * 3600 * 1000;
+// words added through the page store Date.now() in "order"; starter words use small numbers
+const isRecent = r => r.order > 1e12 && (Date.now() - r.order) < WEEK;
+function addedLabel(r) {
+  const d = Math.floor((Date.now() - r.order) / 86400000);
+  return d <= 0 ? "new · today" : "new · " + d + "d ago";
+}
+
+const isSame = r => !!r.my && norm(r.id.trim()) === norm(r.my.trim());
+const secRow = (t, n) => '<tr class="sec"><td colspan="4">' + t + " (" + n + ")</td></tr>";
 
 function hl(text, term) {
   if (!text) return '<span class="dash">—</span>';
@@ -198,7 +216,7 @@ function rowHtml(r, term) {
     : '<button class="edit" title="Edit" data-edit="' + r.docId + '">✎</button>' +
       '<button class="del" title="Delete" data-del="' + r.docId + '">✕</button>';
   return '<tr class="' + (r.deleted ? "trashed" : "") + '">' +
-    '<td class="id">' + hl(r.id,term) + "</td>" +
+    '<td class="id">' + hl(r.id,term) + (!r.deleted && isRecent(r) ? '<span class="badge">' + addedLabel(r) + "</span>" : "") + "</td>" +
     '<td class="my">' + hl(r.my,term) + "</td>" +
     '<td class="en">' + hl(r.en,term) + "</td>" +
     '<td class="act">' + btns + "</td></tr>";
@@ -207,15 +225,24 @@ function rowHtml(r, term) {
 function render() {
   const term = norm(q.value.trim());
   const trashCount = rows.filter(r => r.deleted).length;
-  const pool = rows.filter(r => r.deleted === showTrash);
+  const recentCount = rows.filter(r => !r.deleted && isRecent(r)).length;
+  const pool = rows.filter(r => r.deleted === showTrash && (!showNew || isRecent(r)));
   const list = pool.filter(r => r.docId === editingKey || !term ||
     norm(r.id).includes(term) || norm(r.my).includes(term) || norm(r.en).includes(term));
-  body.innerHTML = list.map(r => rowHtml(r, term)).join("");
+  const diff = list.filter(r => !isSame(r)), same = list.filter(isSame);
+  const section = (title, arr) => (arr.length || !term)
+    ? secRow(title, arr.length) + (arr.length ? arr.map(r => rowHtml(r, term)).join("") : '<tr class="none"><td colspan="4">None yet</td></tr>')
+    : "";
+  body.innerHTML = list.length
+    ? section("Different words", diff) + section("Same words in both languages", same)
+    : "";
   trashBtn.textContent = showTrash ? "← Back to list" : "🗑 Deleted (" + trashCount + ")";
   trashBtn.classList.toggle("active", showTrash);
+  $("newBtn").textContent = showNew ? "← All words" : "🆕 This week (" + recentCount + ")";
+  $("newBtn").classList.toggle("active", showNew);
   $("restoreAllBtn").disabled = trashCount === 0;
   count.textContent = (showTrash ? "Deleted: " : "") + list.length + " of " + pool.length + " words";
-  empty.textContent = !loaded ? "Loading…" : (showTrash && pool.length === 0 ? "No deleted words." : "No words found.");
+  empty.textContent = !loaded ? "Loading…" : (showNew && pool.length === 0 ? "No words added this week." : (showTrash && pool.length === 0 ? "No deleted words." : "No words found."));
   empty.style.display = list.length ? "none" : "block";
   $("seedBtn").style.display = (loaded && rows.length === 0) ? "inline-block" : "none";
 }
@@ -226,10 +253,13 @@ async function run(fn, okMsg) {
 }
 
 function add() {
-  const id = $("newId").value.trim(), my = $("newMy").value.trim(), en = $("newEn").value.trim();
+  const id = $("newId").value.trim(), en = $("newEn").value.trim();
+  const same = $("sameChk").checked;
+  const my = same ? id : $("newMy").value.trim();
   if (!id && !my && !en) { say("Fill in at least one field."); return; }
+  if (same && !id) { say("Type the Indonesian word first."); return; }
   run(() => addDoc(col, {id, my, en, deleted:false, order:Date.now(), updatedAt:serverTimestamp()}), "Word added.");
-  $("newId").value = ""; $("newMy").value = ""; $("newEn").value = ""; $("newId").focus();
+  $("newId").value = ""; $("newMy").value = ""; $("newEn").value = ""; $("sameChk").checked = false; $("newMy").disabled = false; $("newId").focus();
   showTrash = false;
 }
 
@@ -280,6 +310,7 @@ async function main() {
   });
 
   $("addBtn").onclick = add;
+  $("sameChk").onchange = e => { $("newMy").disabled = e.target.checked; if (e.target.checked) $("newMy").value = ""; };
   ["newId","newMy","newEn"].forEach(i => $(i).addEventListener("keydown", e => { if (e.key === "Enter") add(); }));
   q.addEventListener("input", () => { editingKey = null; draft = null; render(); });
 
@@ -302,7 +333,8 @@ async function main() {
     if (e.key === "Escape") { editingKey = null; draft = null; render(); }
   });
 
-  trashBtn.onclick = () => { showTrash = !showTrash; editingKey = null; draft = null; render(); say(""); };
+  $("newBtn").onclick = () => { showNew = !showNew; showTrash = false; editingKey = null; draft = null; render(); say(""); };
+  trashBtn.onclick = () => { showTrash = !showTrash; showNew = false; editingKey = null; draft = null; render(); say(""); };
 
   $("restoreAllBtn").onclick = () => run(async () => {
     const del = rows.filter(r => r.deleted);
