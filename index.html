@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Indonesian – Malay Dictionary</title>
+<style>
+  :root { --bg:#f6f7f9; --card:#fff; --text:#1c1e21; --muted:#6b7280; --line:#e5e7eb; --accent:#2563eb; --id:#fff8c5; --my:#d9f7d9; --danger:#dc2626; --trash:#e5e7eb; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#14161a; --card:#1d2025; --text:#eceef1; --muted:#9aa1ac; --line:#2e333a; --accent:#6ea0ff; --id:#4a4420; --my:#1f4a2a; --danger:#ff7b7b; --trash:#2e333a; }
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; background:var(--bg); color:var(--text); }
+  .wrap { max-width:820px; margin:0 auto; padding:24px 16px 48px; }
+  h1 { font-size:1.5rem; margin:0 0 4px; }
+  p.sub { margin:0 0 16px; color:var(--muted); font-size:.9rem; }
+  .search { position:sticky; top:0; background:var(--bg); padding:8px 0 12px; z-index:2; }
+  input { width:100%; padding:12px 14px; font-size:1rem; border:1px solid var(--line); border-radius:10px; background:var(--card); color:var(--text); outline:none; }
+  input:focus { border-color:var(--accent); }
+  .count { font-size:.8rem; color:var(--muted); margin-top:6px; }
+  .add { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:12px; margin-bottom:16px; }
+  .add h2 { font-size:.95rem; margin:0 0 8px; }
+  .add .row { display:flex; gap:8px; flex-wrap:wrap; }
+  .add .row input { flex:1 1 140px; width:auto; padding:10px 12px; }
+  button { font:inherit; cursor:pointer; border:1px solid var(--line); background:var(--card); color:var(--text); padding:10px 14px; border-radius:10px; }
+  button:disabled { opacity:.5; cursor:default; }
+  button.primary { background:var(--accent); color:#fff; border-color:var(--accent); }
+  .tools { display:flex; gap:8px; margin-top:10px; flex-wrap:wrap; }
+  .tools button { font-size:.8rem; padding:6px 10px; }
+  .tools button.active { background:var(--accent); color:#fff; border-color:var(--accent); }
+  .msg { font-size:.8rem; color:var(--muted); margin-top:8px; min-height:1em; }
+  .banner { background:#fff3cd; color:#533f03; border:1px solid #ecd27a; border-radius:10px; padding:12px 14px; margin-bottom:16px; font-size:.9rem; display:none; }
+  .tablebox { background:var(--card); border:1px solid var(--line); border-radius:10px; overflow-x:auto; }
+  table { width:100%; border-collapse:collapse; min-width:560px; }
+  th { text-align:left; padding:10px 14px; font-size:.8rem; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); border-bottom:1px solid var(--line); }
+  td { padding:10px 14px; border-bottom:1px solid var(--line); vertical-align:middle; }
+  tr:last-child td { border-bottom:none; }
+  td.id { background:var(--id); width:32%; }
+  td.my { background:var(--my); width:32%; }
+  tr.trashed td.id, tr.trashed td.my, tr.trashed td.en { background:var(--trash); color:var(--muted); text-decoration:line-through; }
+  td.act { width:92px; text-align:center; padding:4px; white-space:nowrap; }
+  td.act button { border:none; background:none; font-size:1.05rem; padding:4px 7px; }
+  td.act button.del { color:var(--danger); }
+  td.act button.res, td.act button.edit, td.act button.save { color:var(--accent); }
+  td.act button.cancel { color:var(--muted); }
+  td input.ed { padding:7px 9px; font-size:.9rem; border-radius:8px; }
+  mark { background:#ffd54a; color:#000; border-radius:3px; padding:0 1px; }
+  .empty { padding:24px; text-align:center; color:var(--muted); display:none; }
+  .dash { color:var(--muted); text-decoration:none; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Indonesian 🇮🇩 ↔ Malay 🇲🇾</h1>
+  <p class="sub">Vocabulary differences between Indonesian and Malay. Anyone can search, add, and edit words. Changes appear for everyone.</p>
+
+  <div class="banner" id="banner"></div>
+
+  <div class="add">
+    <h2>➕ Add a word</h2>
+    <div class="row">
+      <input id="newId" placeholder="Indonesian (ID)">
+      <input id="newMy" placeholder="Malay (MY)">
+      <input id="newEn" placeholder="English (EN, optional)">
+      <button class="primary" id="addBtn">Add</button>
+    </div>
+    <div class="tools">
+      <button id="trashBtn">🗑 Deleted (0)</button>
+      <button id="restoreAllBtn">↩ Restore all</button>
+      <button id="exportBtn">Export backup</button>
+      <button id="importBtn">Import backup</button>
+      <input type="file" id="importFile" accept=".json" style="display:none">
+    </div>
+    <div class="msg" id="msg"></div>
+  </div>
+
+  <div class="search">
+    <input id="q" type="search" placeholder="Search a word… (e.g. diskon, Ogos, kurier)">
+    <div class="count" id="count"></div>
+  </div>
+
+  <div class="tablebox">
+    <table>
+      <thead><tr><th>Indonesian (ID)</th><th>Malay (MY)</th><th>English (EN)</th><th></th></tr></thead>
+      <tbody id="body"></tbody>
+    </table>
+    <div class="empty" id="empty">No words found.</div>
+  </div>
+  <div style="text-align:center;margin-top:14px">
+    <button id="seedBtn" style="display:none">Load starter words</button>
+  </div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getFirestore, collection, doc, addDoc, updateDoc, writeBatch, onSnapshot, serverTimestamp }
+  from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+/* ============================================================
+   STEP: paste your Firebase web app config here
+   (Firebase console > Project settings > Your apps > Web app)
+   ============================================================ */
+const firebaseConfig = {
+  apiKey: "AIzaSyBtAWE64fmzRBKrAJkIqoc32G1MM9n7UG0",
+  authDomain: "dict-1252c.firebaseapp.com",
+  projectId: "dict-1252c",
+  storageBucket: "dict-1252c.firebasestorage.app",
+  messagingSenderId: "492863023623",
+  appId: "1:492863023623:web:146bcfedae625d674e98a2"
+};
+
+const starterWords = [
+  ["Seru","Seronok","Fun, exciting"],
+  ["Unduh, unggah","Muat turun, muat naik","Download, upload"],
+  ["Diskon","Diskaun","Discount"],
+  ["Transportasi","Pengangkutan","Transportation"],
+  ["Fiksi","Fiksyen","Fiction"],
+  ["Kode","Kod","Code"],
+  ["Maret","Mac","March"],
+  ["Juni","Jun","June"],
+  ["Juli","Julai","July"],
+  ["Agustus","Ogos","August"],
+  ["Desember","Disember","December"],
+  ["Nonton","Tonton","Watch"],
+  ["S&K","Kelayakan dan syarat/terma","Terms and conditions"],
+  ["WIB","","Western Indonesia Time"],
+  ["Senin","Isnin","Monday"],
+  ["Jumat","Jumaat","Friday"],
+  ["Akun","Akaun","Account"],
+  ["Akhiran -ku, -mu","","Suffixes -ku, -mu (my, your)"],
+  ["Gratis","Percuma","Free"],
+  ["Hemat","Jimat","Save, economical"],
+  ["Pulsa/Kuota","Kredit, data","Phone credit, data allowance"],
+  ["Isi Ulang","Tambah Nilai","Top up"],
+  ["Kartu sim","SIM kad","SIM card"],
+  ["Paket data","Pelan data/Pas data","Data plan"],
+  ["Masa Aktif","Tempo sah","Validity period"],
+  ["Ongkir","Kos Penghantaran","Shipping fee"],
+  ["Bayar di Tempat","Bayar waktu terima","Cash on delivery"],
+  ["Kurir","Kurier/Penghantar","Courier"],
+  ["Aja","Jom, je","Just, only; let us (jom)"],
+  ["Ngobrol","Berbual","Chat"],
+  ["Kamis","Khamis","Thursday"],
+  ["Minggu","Ahad","Sunday"],
+  ["bhs gaul -in. biarin, kirain","","Slang: -in suffix, let it be, I thought (but not so)"],
+  ["Mobil","Kereta","Car"],
+  ["Cicilan, angsuran","Ansuran","Installment"],
+  ["Kupon","Baucar","Coupon, voucher"],
+  ["Cas","Caj","Charge"],
+  ["Sepatu, panci","Kasut, periuk","Shoes, pan"],
+  ["Pesan","Tempah","To order"],
+  ["Sepadan","Berbaloi","Worth it, comparable"],
+  ["Singkatan (s/d and s&k)","","Abbreviations (s/d = up to, s&k = terms and conditions)"],
+  ["Guys, ges, kuy, sob","Korang","Guys, folks (slang)"],
+  ["Kalian","Korang","You all (plural)"],
+  ["Tuan, nyonya","Encik, puan","Sir, madam"],
+  ["Flek","Jeragat","Facial spots, blemishes"],
+  ["Libur/liburan","Cuti","Holiday"],
+  ["Musik","Muzik","Music"],
+  ["Kelihatan/nampak","Nampak","Visible, to appear"],
+  ["Coba","Cuba","Try"],
+  ["3 pak","3 pek","3 packs"],
+  ["Urutkan","Susun","Sort, arrange"],
+  ["Lempar","Campak","Throw"],
+  ["RP (rupiah)","","Rp (rupiah, Indonesian currency)"]
+];
+
+const $ = id => document.getElementById(id);
+const body=$("body"), q=$("q"), count=$("count"), empty=$("empty"), msg=$("msg"), trashBtn=$("trashBtn"), banner=$("banner");
+const say = t => { msg.textContent = t; };
+const esc = s => String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const norm = s => String(s).toLowerCase();
+function showBanner(t) { banner.textContent = t; banner.style.display = "block"; }
+
+let rows = [], showTrash = false, editingKey = null, draft = null, db = null, col = null, loaded = false;
+const configured = !firebaseConfig.apiKey.startsWith("PASTE");
+
+function hl(text, term) {
+  if (!text) return '<span class="dash">—</span>';
+  if (!term) return esc(text);
+  const i = norm(text).indexOf(term);
+  if (i < 0) return esc(text);
+  return esc(text.slice(0,i)) + "<mark>" + esc(text.slice(i,i+term.length)) + "</mark>" + esc(text.slice(i+term.length));
+}
+
+function rowHtml(r, term) {
+  if (r.docId === editingKey) {
+    const d = draft || r;
+    return '<tr data-key="' + r.docId + '">' +
+      '<td class="id"><input class="ed ed-id" value="' + esc(d.id) + '"></td>' +
+      '<td class="my"><input class="ed ed-my" value="' + esc(d.my) + '"></td>' +
+      '<td class="en"><input class="ed ed-en" value="' + esc(d.en) + '"></td>' +
+      '<td class="act"><button class="save" title="Save" data-save="' + r.docId + '">✓</button>' +
+      '<button class="cancel" title="Cancel" data-cancel="1">✕</button></td></tr>';
+  }
+  const btns = r.deleted
+    ? '<button class="res" title="Restore" data-res="' + r.docId + '">↩</button>'
+    : '<button class="edit" title="Edit" data-edit="' + r.docId + '">✎</button>' +
+      '<button class="del" title="Delete" data-del="' + r.docId + '">✕</button>';
+  return '<tr class="' + (r.deleted ? "trashed" : "") + '">' +
+    '<td class="id">' + hl(r.id,term) + "</td>" +
+    '<td class="my">' + hl(r.my,term) + "</td>" +
+    '<td class="en">' + hl(r.en,term) + "</td>" +
+    '<td class="act">' + btns + "</td></tr>";
+}
+
+function render() {
+  const term = norm(q.value.trim());
+  const trashCount = rows.filter(r => r.deleted).length;
+  const pool = rows.filter(r => r.deleted === showTrash);
+  const list = pool.filter(r => r.docId === editingKey || !term ||
+    norm(r.id).includes(term) || norm(r.my).includes(term) || norm(r.en).includes(term));
+  body.innerHTML = list.map(r => rowHtml(r, term)).join("");
+  trashBtn.textContent = showTrash ? "← Back to list" : "🗑 Deleted (" + trashCount + ")";
+  trashBtn.classList.toggle("active", showTrash);
+  $("restoreAllBtn").disabled = trashCount === 0;
+  count.textContent = (showTrash ? "Deleted: " : "") + list.length + " of " + pool.length + " words";
+  empty.textContent = !loaded ? "Loading…" : (showTrash && pool.length === 0 ? "No deleted words." : "No words found.");
+  empty.style.display = list.length ? "none" : "block";
+  $("seedBtn").style.display = (loaded && rows.length === 0) ? "inline-block" : "none";
+}
+
+async function run(fn, okMsg) {
+  try { await fn(); if (okMsg) say(okMsg); }
+  catch (e) { say("Error: " + (e && e.message ? e.message : e)); }
+}
+
+function add() {
+  const id = $("newId").value.trim(), my = $("newMy").value.trim(), en = $("newEn").value.trim();
+  if (!id && !my && !en) { say("Fill in at least one field."); return; }
+  run(() => addDoc(col, {id, my, en, deleted:false, order:Date.now(), updatedAt:serverTimestamp()}), "Word added.");
+  $("newId").value = ""; $("newMy").value = ""; $("newEn").value = ""; $("newId").focus();
+  showTrash = false;
+}
+
+function startEdit(key) {
+  editingKey = key; draft = null; render();
+  const tr = body.querySelector('tr[data-key="' + key + '"]');
+  if (tr) { const f = tr.querySelector(".ed-id"); f.focus(); f.select(); }
+}
+
+function saveEdit(key) {
+  const tr = body.querySelector('tr[data-key="' + key + '"]');
+  if (!tr) return;
+  const id = tr.querySelector(".ed-id").value.trim(),
+        my = tr.querySelector(".ed-my").value.trim(),
+        en = tr.querySelector(".ed-en").value.trim();
+  if (!id && !my && !en) { say("Fill in at least one field."); return; }
+  editingKey = null; draft = null;
+  run(() => updateDoc(doc(db, "words", key), {id, my, en, updatedAt:serverTimestamp()}), "Changes saved.");
+  render();
+}
+
+function setDeleted(key, value) {
+  run(() => updateDoc(doc(db, "words", key), {deleted:value, updatedAt:serverTimestamp()}),
+      value ? "Word deleted. You can restore it from Deleted." : "Word restored.");
+}
+
+async function main() {
+  if (!configured) {
+    showBanner("Setup needed: open this file in a text editor and paste your Firebase config where it says PASTE_YOUR_API_KEY.");
+    loaded = true; render(); return;
+  }
+  const app = initializeApp(firebaseConfig);
+  db = getFirestore(app);
+  col = collection(db, "words");
+
+  onSnapshot(col, snap => {
+    rows = snap.docs.map(d => {
+      const x = d.data();
+      return {docId:d.id, id:x.id || "", my:x.my || "", en:x.en || "", deleted:!!x.deleted, order:x.order || 0};
+    }).sort((a,b) => {
+      const ka = a.id || a.my || a.en, kb = b.id || b.my || b.en;
+      return ka.localeCompare(kb, "id", {sensitivity:"base", numeric:true});
+    });
+    loaded = true; render();
+  }, err => {
+    loaded = true; render();
+    showBanner("Could not read the database: " + err.message + " (check your Firestore rules and config)");
+  });
+
+  $("addBtn").onclick = add;
+  ["newId","newMy","newEn"].forEach(i => $(i).addEventListener("keydown", e => { if (e.key === "Enter") add(); }));
+  q.addEventListener("input", () => { editingKey = null; draft = null; render(); });
+
+  body.addEventListener("click", e => {
+    const t = e.target.closest("button"); if (!t) return;
+    if (t.dataset.del) setDeleted(t.dataset.del, true);
+    else if (t.dataset.res) setDeleted(t.dataset.res, false);
+    else if (t.dataset.edit) { startEdit(t.dataset.edit); say(""); }
+    else if (t.dataset.save) saveEdit(t.dataset.save);
+    else if (t.dataset.cancel) { editingKey = null; draft = null; render(); say(""); }
+  });
+  body.addEventListener("input", e => {
+    if (!e.target.classList.contains("ed")) return;
+    const tr = e.target.closest("tr");
+    draft = {id:tr.querySelector(".ed-id").value, my:tr.querySelector(".ed-my").value, en:tr.querySelector(".ed-en").value};
+  });
+  body.addEventListener("keydown", e => {
+    if (!e.target.classList.contains("ed")) return;
+    if (e.key === "Enter") saveEdit(editingKey);
+    if (e.key === "Escape") { editingKey = null; draft = null; render(); }
+  });
+
+  trashBtn.onclick = () => { showTrash = !showTrash; editingKey = null; draft = null; render(); say(""); };
+
+  $("restoreAllBtn").onclick = () => run(async () => {
+    const del = rows.filter(r => r.deleted);
+    for (let i = 0; i < del.length; i += 400) {
+      const b = writeBatch(db);
+      del.slice(i, i + 400).forEach(r => b.update(doc(db, "words", r.docId), {deleted:false, updatedAt:serverTimestamp()}));
+      await b.commit();
+    }
+    showTrash = false;
+  }, "All words restored.");
+
+  $("seedBtn").onclick = () => run(async () => {
+    const b = writeBatch(db);
+    starterWords.forEach((w, i) => {
+      const k = "w" + String(i + 1).padStart(3, "0");
+      b.set(doc(db, "words", k), {id:w[0], my:w[1], en:w[2], deleted:false, order:i + 1, updatedAt:serverTimestamp()});
+    });
+    await b.commit();
+  }, "Starter words loaded.");
+
+  $("exportBtn").onclick = () => {
+    const data = rows.map(r => ({id:r.id, my:r.my, en:r.en, deleted:r.deleted}));
+    const blob = new Blob([JSON.stringify(data, null, 2)], {type:"application/json"});
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob); a.download = "dictionary-backup.json"; a.click();
+    URL.revokeObjectURL(a.href);
+    say("Backup downloaded.");
+  };
+  $("importBtn").onclick = () => $("importFile").click();
+  $("importFile").onchange = e => {
+    const f = e.target.files[0]; if (!f) return;
+    const rd = new FileReader();
+    rd.onload = () => run(async () => {
+      const data = JSON.parse(rd.result);
+      const list = (Array.isArray(data) ? data : (data.custom || []))
+        .filter(x => x && typeof x.id === "string" && typeof x.my === "string");
+      for (let i = 0; i < list.length; i += 400) {
+        const b = writeBatch(db);
+        list.slice(i, i + 400).forEach((x, j) => b.set(doc(collection(db, "words")),
+          {id:x.id, my:x.my, en:typeof x.en === "string" ? x.en : "", deleted:!!x.deleted, order:Date.now() + i + j, updatedAt:serverTimestamp()}));
+        await b.commit();
+      }
+      say(list.length + " words imported.");
+    });
+    rd.readAsText(f); e.target.value = "";
+  };
+}
+
+render();
+main();
+</script>
+</body>
+</html>
