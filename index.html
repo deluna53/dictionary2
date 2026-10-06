@@ -238,7 +238,7 @@ function render() {
     : "";
   trashBtn.textContent = showTrash ? "← Back to list" : "🗑 Deleted (" + trashCount + ")";
   trashBtn.classList.toggle("active", showTrash);
-  $("newBtn").textContent = showNew ? "← All words" : "🆕 This week (" + recentCount + ")";
+  $("newBtn").textContent = showNew ? "← All words" : "🆕 Added This week (" + recentCount + ")";
   $("newBtn").classList.toggle("active", showNew);
   $("restoreAllBtn").disabled = trashCount === 0;
   count.textContent = (showTrash ? "Deleted: " : "") + list.length + " of " + pool.length + " words";
